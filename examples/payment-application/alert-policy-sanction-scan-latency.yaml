@@ -1,0 +1,19 @@
+apiVersion: openslo/v1
+kind: AlertPolicy
+metadata:
+  name: sanction-scan-latency-burn-rate
+  displayName: Sanction scan latency burn rate
+  labels:
+    team: payments
+    domain: compliance
+spec:
+  description: >
+    Alert when sanction scan latency SLO error budget burn rate indicates
+    we are at risk of missing the 99.9% / 30-day target.
+  alertWhenBreaching: true
+  alertWhenResolved: true
+  alertWhenNoData: true
+  conditions:
+    - conditionRef: sanction-scan-burn-rate-fast
+  notificationTargets:
+    - targetRef: payments-compliance-oncall

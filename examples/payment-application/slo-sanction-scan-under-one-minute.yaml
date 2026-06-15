@@ -1,0 +1,26 @@
+apiVersion: openslo/v1
+kind: SLO
+metadata:
+  name: sanction-scan-latency-30d
+  displayName: Sanction scan latency (30-day rolling)
+  labels:
+    team: payments
+    domain: compliance
+  annotations:
+    openslo.com/dashboard: https://grafana.payments.example.com/d/sanction-scan-slo
+spec:
+  description: >
+    99.9% of sanction scans must complete in under one minute,
+    evaluated over a rolling 30-day window. Applies to all production
+    sanction screening for payment initiation and settlement flows.
+  service: payment-platform
+  indicatorRef: sanction-scan-under-one-minute
+  timeWindow:
+    - duration: 30d
+      isRolling: true
+  budgetingMethod: Occurrences
+  objectives:
+    - displayName: Sanction scan under 60 seconds
+      target: 0.999
+  alertPolicies:
+    - alertPolicyRef: sanction-scan-latency-burn-rate

@@ -1,0 +1,28 @@
+apiVersion: openslo/v1
+kind: SLI
+metadata:
+  name: sanction-scan-under-one-minute
+  displayName: Sanction scan completed within 60 seconds
+  labels:
+    team: payments
+    domain: compliance
+spec:
+  description: >
+    Ratio of sanction screening requests that complete within 60 seconds
+    to all completed sanction screening requests. Excludes in-flight scans.
+  ratioMetric:
+    counter: true
+    good:
+      metricSource:
+        metricSourceRef: payment-prometheus
+        type: Prometheus
+        spec:
+          query: |
+            sum(increase(sanction_scan_completed_total{duration_le="60s",status="success"}[5m]))
+    total:
+      metricSource:
+        metricSourceRef: payment-prometheus
+        type: Prometheus
+        spec:
+          query: |
+            sum(increase(sanction_scan_completed_total{status="success"}[5m]))

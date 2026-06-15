@@ -1,0 +1,14 @@
+apiVersion: openslo/v1
+kind: DataSource
+metadata:
+  name: payment-prometheus
+  displayName: Payment Platform Prometheus
+  labels:
+    team: payments
+    environment: production
+spec:
+  description: Primary Prometheus instance for payment platform metrics
+  type: Prometheus
+  connectionDetails:
+    url: https://prometheus.payments.example.com
+    # In production, credentials are supplied by the consuming system — not embedded in SLO YAML.

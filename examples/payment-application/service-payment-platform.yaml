@@ -1,0 +1,12 @@
+apiVersion: openslo/v1
+kind: Service
+metadata:
+  name: payment-platform
+  displayName: Payment Platform
+  labels:
+    team: payments
+    tier: tier-1
+spec:
+  description: >
+    Core payment processing platform including authorization, settlement,
+    fraud checks, and regulatory sanction screening for outbound transfers.

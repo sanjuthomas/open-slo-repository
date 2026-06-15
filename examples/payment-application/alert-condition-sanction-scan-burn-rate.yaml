@@ -1,0 +1,19 @@
+apiVersion: openslo/v1
+kind: AlertCondition
+metadata:
+  name: sanction-scan-burn-rate-fast
+  displayName: Sanction scan SLO fast burn rate
+  labels:
+    team: payments
+    domain: compliance
+spec:
+  description: >
+    Fires when the sanction scan latency error budget is burning fast enough
+    that the 30-day SLO would be exhausted well before the window ends.
+  severity: page
+  condition:
+    kind: burnrate
+    op: gte
+    threshold: 14.4
+    lookbackWindow: 1h
+    alertAfter: 5m

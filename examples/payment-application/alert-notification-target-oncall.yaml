@@ -1,0 +1,11 @@
+apiVersion: openslo/v1
+kind: AlertNotificationTarget
+metadata:
+  name: payments-compliance-oncall
+  displayName: Payments compliance on-call
+  labels:
+    team: payments
+spec:
+  description: >
+    Pager and email route for payments compliance and sanctions screening incidents.
+  target: pagerduty-payments-compliance
