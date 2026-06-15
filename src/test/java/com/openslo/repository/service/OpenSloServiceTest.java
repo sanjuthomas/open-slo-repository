@@ -1,5 +1,7 @@
 package com.openslo.repository.service;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
 import com.openslo.repository.exception.DuplicateOpenSloException;
 import com.openslo.repository.exception.OpenSloNotFoundException;
 import com.openslo.repository.exception.OpenSloValidationException;
@@ -37,7 +39,10 @@ class OpenSloServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new OpenSloService(repository, new OpenSloValidator());
+        ObjectMapper yamlObjectMapper = new ObjectMapper(new YAMLFactory());
+        service = new OpenSloService(
+            repository,
+            new OpenSloValidator(new YamlConversionService(yamlObjectMapper)));
         SecurityContextHolder.getContext().setAuthentication(
             new UsernamePasswordAuthenticationToken("testuser", "secret"));
     }

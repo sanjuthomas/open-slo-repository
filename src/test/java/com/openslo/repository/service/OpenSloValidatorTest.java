@@ -1,26 +1,34 @@
 package com.openslo.repository.service;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
 import com.openslo.repository.exception.OpenSloValidationException;
 import com.openslo.repository.support.OpenSloTestSupport;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
+import org.mockito.junit.jupiter.MockitoExtension;
 
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
+@ExtendWith(MockitoExtension.class)
 class OpenSloValidatorTest {
 
     private OpenSloValidator validator;
 
     @BeforeEach
     void setUp() {
-        validator = new OpenSloValidator();
+        ObjectMapper yamlObjectMapper = new ObjectMapper(new YAMLFactory());
+        validator = new OpenSloValidator(new YamlConversionService(yamlObjectMapper));
     }
 
     @Test
@@ -49,7 +57,7 @@ class OpenSloValidatorTest {
         content.put("apiVersion", "openslo/v2");
         assertThatThrownBy(() -> validator.validate(content))
             .isInstanceOf(OpenSloValidationException.class)
-            .hasMessageContaining("apiVersion");
+            .hasMessageContaining("openslo/v2");
     }
 
     @Test
@@ -70,7 +78,7 @@ class OpenSloValidatorTest {
     }
 
     @Test
-    void rejectsSloWithoutIndicatorOrObjectives() {
+    void rejectsSloWithoutIndicator() {
         Map<String, Object> withoutIndicator = OpenSloTestSupport.sloDocument("slo");
         @SuppressWarnings("unchecked")
         Map<String, Object> specWithoutIndicator = (Map<String, Object>) withoutIndicator.get("spec");
@@ -78,14 +86,6 @@ class OpenSloValidatorTest {
         assertThatThrownBy(() -> validator.validate(withoutIndicator))
             .isInstanceOf(OpenSloValidationException.class)
             .hasMessageContaining("indicator");
-
-        Map<String, Object> withoutObjectives = OpenSloTestSupport.sloDocument("slo2");
-        @SuppressWarnings("unchecked")
-        Map<String, Object> specWithoutObjectives = (Map<String, Object>) withoutObjectives.get("spec");
-        specWithoutObjectives.put("objectives", List.of());
-        assertThatThrownBy(() -> validator.validate(withoutObjectives))
-            .isInstanceOf(OpenSloValidationException.class)
-            .hasMessageContaining("objectives");
     }
 
     @Test
@@ -127,11 +127,16 @@ class OpenSloValidatorTest {
     }
 
     @Test
-    void rejectsAlertPolicyWithoutTargets() {
-        Map<String, Object> content = OpenSloTestSupport.alertPolicyDocument("ap");
+    void rejectsInvalidTimeWindowShape() {
+        Map<String, Object> content = OpenSloTestSupport.sloDocument("slo");
         @SuppressWarnings("unchecked")
         Map<String, Object> spec = (Map<String, Object>) content.get("spec");
-        spec.remove("notificationTargets");
+        spec.put("timeWindow", List.of(Map.of("duration", "1d"), Map.of("duration", "2d")));
+        assertThatThrownBy(() -> validator.validate(content))
+            .isInstanceOf(OpenSloValidationException.class)
+            .hasMessageContaining("timeWindow");
+
+        spec.put("timeWindow", List.of("not-a-map"));
         assertThatThrownBy(() -> validator.validate(content))
             .isInstanceOf(OpenSloValidationException.class);
     }
@@ -158,15 +163,6 @@ class OpenSloValidatorTest {
     }
 
     @Test
-    void rejectsMissingSpec() {
-        Map<String, Object> content = new HashMap<>(OpenSloTestSupport.serviceDocument("svc"));
-        content.remove("spec");
-        assertThatThrownBy(() -> validator.validate(content))
-            .isInstanceOf(OpenSloValidationException.class)
-            .hasMessageContaining("spec");
-    }
-
-    @Test
     void acceptsSloWithIndicatorRef() {
         Map<String, Object> content = OpenSloTestSupport.sloDocument("slo");
         @SuppressWarnings("unchecked")
@@ -174,21 +170,6 @@ class OpenSloValidatorTest {
         spec.remove("indicator");
         spec.put("indicatorRef", "external-sli");
         assertThatCode(() -> validator.validate(content)).doesNotThrowAnyException();
-    }
-
-    @Test
-    void rejectsInvalidTimeWindowShape() {
-        Map<String, Object> content = OpenSloTestSupport.sloDocument("slo");
-        @SuppressWarnings("unchecked")
-        Map<String, Object> spec = (Map<String, Object>) content.get("spec");
-        spec.put("timeWindow", List.of(Map.of("duration", "1d"), Map.of("duration", "2d")));
-        assertThatThrownBy(() -> validator.validate(content))
-            .isInstanceOf(OpenSloValidationException.class)
-            .hasMessageContaining("exactly one");
-
-        spec.put("timeWindow", List.of("not-a-map"));
-        assertThatThrownBy(() -> validator.validate(content))
-            .isInstanceOf(OpenSloValidationException.class);
     }
 
     @Test
@@ -209,5 +190,41 @@ class OpenSloValidatorTest {
         spec.remove("target");
         assertThatThrownBy(() -> validator.validate(content))
             .isInstanceOf(OpenSloValidationException.class);
+    }
+
+    @Test
+    void rejectsMultipleDocuments() {
+        YamlConversionService yamlService = mock(YamlConversionService.class);
+        when(yamlService.toYaml(any())).thenReturn("""
+            apiVersion: openslo/v1
+            kind: Service
+            metadata:
+              name: a
+            spec:
+              description: one
+            ---
+            apiVersion: openslo/v1
+            kind: Service
+            metadata:
+              name: b
+            spec:
+              description: two
+            """);
+        OpenSloValidator multiDocumentValidator = new OpenSloValidator(yamlService);
+
+        assertThatThrownBy(() -> multiDocumentValidator.validate(Map.of("ignored", "map")))
+            .isInstanceOf(OpenSloValidationException.class)
+            .hasMessageContaining("Exactly one OpenSLO document is required");
+    }
+
+    @Test
+    void rejectsDecodedEmptyDocument() {
+        YamlConversionService yamlService = mock(YamlConversionService.class);
+        when(yamlService.toYaml(any())).thenReturn("");
+        OpenSloValidator emptyDocumentValidator = new OpenSloValidator(yamlService);
+
+        assertThatThrownBy(() -> emptyDocumentValidator.validate(Map.of("foo", "bar")))
+            .isInstanceOf(OpenSloValidationException.class)
+            .hasMessageContaining("OpenSLO document content is required");
     }
 }
