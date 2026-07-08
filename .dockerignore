@@ -1,0 +1,12 @@
+.git
+.github
+.idea
+.vscode
+target
+*.iml
+.env
+.env.*
+examples
+README.md
+AGENTS.md
+LICENSE
